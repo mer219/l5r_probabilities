@@ -4,10 +4,19 @@ import sys
 
 def calculate(success_list):
 
-    if len(success_list) > 0 :
-        return success_list[0] + (1 - success_list[0]) * calculate(success_list[1:])
-   
-    return 0
+#    if len(success_list) > 0 :
+#        return success_list[0] + (1 - success_list[0]) * calculate(success_list[1:])
+    first = True
+    success_chance = 1
+    for success in success_list:
+        if first:
+            success_chance *= success
+            first = False
+        else:
+            temp_success = success_chance + ((1 - success_chance) * success)
+            success_chance = temp_success
+
+    return success_chance
 
 def build_combinations(dicepool, target_number, kept_dice):
     combinations = list()
