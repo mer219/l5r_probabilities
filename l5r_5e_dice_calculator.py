@@ -4,8 +4,6 @@ import sys
 
 def calculate(success_list):
 
-#    if len(success_list) > 0 :
-#        return success_list[0] + (1 - success_list[0]) * calculate(success_list[1:])
     first = True
     success_chance = 1
     for success in success_list:
@@ -13,30 +11,57 @@ def calculate(success_list):
             success_chance *= success
             first = False
         else:
-            temp_success = success_chance + ((1 - success_chance) * success)
-            success_chance = temp_success
+            success_chance += success
 
     return success_chance
 
 def build_combinations(dicepool, target_number, kept_dice):
     combinations = list()
+    die = dicepool[0]
+    if target_number == 0 or kept_dice == 0:
+        combination = list()
+        for die in dicepool:
+            combination.append([die, "Don't Care", 0])
+        combinations.append(combination)
+        return combinations
 
-    if (target_number <= 0) or ( kept_dice <= 0):
-        return list()
+    if len(dicepool) == 1:
+        combination = list()
+        if target_number == 1:
+            combination.append([die, "Success", 0])
+        else:
+            combination.append([die, "Explode", target_number - 1])
+        combinations.append(combination)
+        return combinations
 
-    for die in dicepool:
-        combinations.append([(die, target_number - 1)]) # we return the type of die and number of explosions
+    if target_number > 1:
+        for i in range(target_number, 1, -1):
+            this_combination = [die, "Explode", i - 1]
+            other_combinations = build_combinations(dicepool[1:], target_number - i, kept_dice - 1)
+            for other_combination in other_combinations:
+                combination = list()
+                combination.append(this_combination) 
+                for other_die in other_combination:
+                    combination.append(other_die)
+                combinations.append(combination)
 
-    if (kept_dice != 1) and (target_number != 1):
-        for die in range (len(dicepool)):
-            for i in range (1, target_number):
-                other_combinations = build_combinations(dicepool[die + 1:], i, kept_dice - 1)
-                for other_combination in other_combinations:
-                    combination = list()
-                    combination.append((dicepool[die], target_number - i - 1)) # we return the type of die and number of explosions
-                    for other_die in other_combination:
-                        combination.append(other_die)
-                    combinations.append(combination)
+    this_combination = [die, "Success", 0]
+    other_combinations = build_combinations(dicepool[1:], target_number - 1, kept_dice - 1)
+    for other_combination in other_combinations:
+        combination = list()
+        combination.append(this_combination) 
+        for other_die in other_combination:
+            combination.append(other_die)
+        combinations.append(combination)
+
+    this_combination = [die, "Failure", 0]
+    other_combinations = build_combinations(dicepool[1:], target_number, kept_dice)
+    for other_combination in other_combinations:
+        combination = list()
+        combination.append(this_combination) 
+        for other_die in other_combination:
+            combination.append(other_die)
+        combinations.append(combination)
 
     return combinations
 
@@ -52,20 +77,38 @@ def build_success_list(rings, skills, target_number):
     success_list = list()
 
     for combination in combinations:
+        #print combination
         success_chance = 1
         for die in combination:
-            die_type, number_of_explosions = die
+            die_type, result, number_of_explosions = die
             if (die_type == "ring"):
-                if ( number_of_explosions == (target_number - 1) ):
-                    success_chance *= ring_success_at_least * (explosion ** number_of_explosions) 
-                else:
-                    success_chance *= ring_success_exact * (explosion ** number_of_explosions)
+                if result == "Explode":
+                    if ( number_of_explosions == (target_number - 1) ):
+                        success_chance *= ring_success_at_least * (explosion ** number_of_explosions) 
+                    else:
+                        success_chance *= ring_success_exact * (explosion ** number_of_explosions)
+
+                if result == "Success":
+                    success_chance *= ring_success_at_least 
+
+                if result == "Failure":
+                    success_chance *= ring_failure
       
             if (die_type == "skill"):
-                if ( number_of_explosions == (target_number - 1) ):
-                    success_chance *= skill_success_at_least * (explosion ** number_of_explosions) 
-                else:
-                    success_chance *= skill_success_exact * (explosion ** number_of_explosions)
+                if result == "Explode":
+                    if ( number_of_explosions == (target_number - 1) ):
+                        success_chance *= skill_success_at_least * (explosion ** number_of_explosions) 
+                    else:
+                        success_chance *= skill_success_exact * (explosion ** number_of_explosions)
+
+                if result == "Success":
+                    success_chance *= skill_success_at_least 
+
+                if result == "Failure":
+                    success_chance *= skill_failure
+
+            if result == "Don't Care":
+                success_chance *= dont_care
 
         success_list.append(success_chance)
 
@@ -88,25 +131,32 @@ ring_success_exact = 1.0/3.0 + 1.0/6.0 * 1.0/2.0 # success or explode with failu
 global ring_success_at_least
 ring_success_at_least = 1.0/2.0 #success or exploding success
 
+global ring_failure
+ring_failure = 0.5
+
 global skill_success_exact
 skill_success_exact = 5.0/12.0 + 1.0/6.0 * 5.0/12.0 #success or explode with failure
 
 global skill_success_at_least
 skill_success_at_least = 7.0/12.0 #success or explode with failure
 
+global skill_failure
+skill_failure = 5.0/12.0
+
 global explosion
 explosion = 1.0/6.0
 
+global dont_care
+dont_care = 1.0
 
-#rings = int(sys.argv[1])
-#skills = int(sys.argv[2])
+
 target_number = int(sys.argv[1])
 output = list()
 
 for rings in range(1, 6):
     for skills in range(0, 6):
-         success_list = build_success_list(rings, skills, target_number)
-         output.append(calculate(success_list))
+     success_list = build_success_list(rings, skills, target_number)
+     output.append(calculate(success_list))
 
 i = 0
 string = ""
